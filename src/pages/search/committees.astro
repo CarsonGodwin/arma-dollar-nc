@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CandidateSearch from '../../components/CandidateSearch';
+
+const query = Astro.url.searchParams.get('q') || '';
+---
+
+<BaseLayout title="Search Committees" description="Browse Texas political committees and candidates">
+  <div class="bg-slate-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Page Header -->
+      <div class="mb-8">
+        <nav class="text-sm text-slate-500 mb-2">
+          <a href="/" class="hover:text-texas-blue">Home</a>
+          <span class="mx-2">›</span>
+          <span class="text-slate-900">Committee Search</span>
+        </nav>
+        <h1 class="text-3xl font-bold text-slate-900">Committees & Candidates</h1>
+        <p class="text-slate-600 mt-2">
+          Browse campaign finance filings for Texas political committees and candidates
+        </p>
+      </div>
+
+      <!-- Search Component -->
+      <CandidateSearch client:load initialQuery={query} />
+    </div>
+  </div>
+</BaseLayout>

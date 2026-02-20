@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.astro/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# AI tools
+.claude
+CLAUDE.md
+.codex/
+agents.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Wrangler
+.wrangler/
+
+# Data files
+*.parquet
+*.csv
+data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Supabase
+supabase/.temp/
