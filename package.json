@@ -9,7 +9,6 @@
   "dependencies": {
     "@astrojs/check": "^0.9.6",
     "@astrojs/react": "^4.4.2",
-    "@astrojs/tailwind": "^6.0.2",
     "@duckdb/duckdb-wasm": "^1.33.1-dev18.0",
     "@tailwindcss/postcss": "^4.1.18",
     "astro": "^5.16.11",
