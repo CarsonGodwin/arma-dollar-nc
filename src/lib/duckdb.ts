@@ -96,8 +96,6 @@ export interface Filer {
   party?: string;
   office_held?: string;
   office_sought?: string;
-  district_held?: string;
-  district_sought?: string;
   office_district?: string;
   city?: string;
   state?: string;
@@ -150,6 +148,93 @@ export interface Report {
   total_expenditures?: number;
   cash_on_hand?: number;
   loan_balance?: number;
+}
+
+export const NC_SCHEMA_CONTRACT: Record<'filers' | 'contributions' | 'expenditures' | 'reports', string[]> = {
+  filers: [
+    'id',
+    'name',
+    'type',
+    'party',
+    'office_held',
+    'office_sought',
+    'office_district',
+    'city',
+    'state',
+    'status',
+  ],
+  contributions: [
+    'contribution_id',
+    'id',
+    'filer_id',
+    'filer_name',
+    'contributor_name',
+    'contributor_type',
+    'contributor_city',
+    'contributor_state',
+    'contributor_zip',
+    'contributor_employer',
+    'contributor_occupation',
+    'amount',
+    'date',
+    'received_date',
+    'description',
+  ],
+  expenditures: [
+    'expenditure_id',
+    'id',
+    'filer_id',
+    'filer_name',
+    'payee_name',
+    'payee_city',
+    'payee_state',
+    'payee_zip',
+    'amount',
+    'date',
+    'received_date',
+    'category',
+    'category_code',
+    'description',
+  ],
+  reports: [
+    'report_id',
+    'filer_id',
+    'filer_name',
+    'form_type',
+    'report_type',
+    'period_start',
+    'period_end',
+    'filed_date',
+    'received_date',
+    'total_contributions',
+    'total_expenditures',
+    'cash_on_hand',
+    'loan_balance',
+    'loans_outstanding',
+  ],
+};
+
+async function validateSchemaContract(): Promise<void> {
+  if (!connection) throw new Error('DuckDB connection not initialized');
+
+  for (const [table, requiredColumns] of Object.entries(NC_SCHEMA_CONTRACT) as Array<[keyof typeof NC_SCHEMA_CONTRACT, string[]]>) {
+    const columnsResult = await connection.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = '${table}'
+    `);
+
+    const availableColumns = new Set(
+      columnsResult
+        .toArray()
+        .map((row) => (row.toJSON() as { column_name: string }).column_name.toLowerCase())
+    );
+
+    const missing = requiredColumns.filter((column) => !availableColumns.has(column.toLowerCase()));
+    if (missing.length > 0) {
+      throw new Error(`Schema contract mismatch for ${table}. Missing columns: ${missing.join(', ')}`);
+    }
+  }
 }
 
 // Load a parquet file (from cache or download)
@@ -258,8 +343,7 @@ async function initDuckDB(): Promise<void> {
       // Create views with compatibility aliases
       await connection.query(`
         CREATE VIEW IF NOT EXISTS filers AS
-        SELECT *,
-          COALESCE(district_held, district_sought) as office_district
+        SELECT *
         FROM read_parquet('filers.parquet');
       `);
 
@@ -279,8 +363,13 @@ async function initDuckDB(): Promise<void> {
 
       await connection.query(`
         CREATE VIEW IF NOT EXISTS reports AS
-        SELECT * FROM read_parquet('reports.parquet');
+        SELECT *,
+          form_type as report_type,
+          loan_balance as loans_outstanding
+        FROM read_parquet('reports.parquet');
       `);
+
+      await validateSchemaContract();
 
       initialized = true;
       setProgress({ status: 'ready' });
@@ -468,7 +557,7 @@ export async function searchFilers(
     conditions.push(`(office_held = '${escapeSql(filters.officeType)}' OR office_sought = '${escapeSql(filters.officeType)}')`);
   }
   if (filters.district) {
-    conditions.push(`(district_held = '${escapeSql(filters.district)}' OR district_sought = '${escapeSql(filters.district)}')`);
+    conditions.push(`office_district = '${escapeSql(filters.district)}'`);
   }
   if (filters.filerType) {
     conditions.push(`type = '${escapeSql(filters.filerType)}'`);

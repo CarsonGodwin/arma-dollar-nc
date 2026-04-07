@@ -14,7 +14,6 @@ import {
   formatCurrency,
   formatDateInt,
 } from '../lib/search';
-import { getPartyTag, submitPartyTag, PARTY_OPTIONS, type PartyOption, type PartyTag } from '../lib/supabase';
 import type { Filer, Contribution, LatestReport, ReportTimelinePoint } from '../lib/search';
 
 interface CandidateProfileProps {
@@ -56,12 +55,6 @@ export default function CandidateProfile({ filerId }: CandidateProfileProps) {
   const [filterLoading, setFilterLoading] = useState(false);
   const [filtersApplied, setFiltersApplied] = useState(false);
 
-  // Party tagging
-  const [partyTag, setPartyTag] = useState<PartyTag | null>(null);
-  const [showTagDropdown, setShowTagDropdown] = useState(false);
-  const [tagSubmitting, setTagSubmitting] = useState(false);
-  const [tagError, setTagError] = useState<string | null>(null);
-
   const getDateRange = useCallback((): { from?: string; to?: string } => {
     switch (datePreset) {
       case '2025':
@@ -87,16 +80,14 @@ export default function CandidateProfile({ filerId }: CandidateProfileProps) {
     async function loadFiler() {
       setLoading(true);
       try {
-        const [profileData, report, tag] = await Promise.all([
+        const [profileData, report] = await Promise.all([
           getFilerById(filerId),
           getLatestReport(filerId),
-          getPartyTag(filerId),
         ]);
         if (profileData) {
           setFiler(profileData.filer);
         }
         setLatestReport(report);
-        setPartyTag(tag);
       } catch (error) {
         console.error('Error loading filer:', error);
       } finally {
@@ -106,28 +97,7 @@ export default function CandidateProfile({ filerId }: CandidateProfileProps) {
     loadFiler();
   }, [filerId]);
 
-  // Handle party tag submission
-  const handleTagParty = async (party: PartyOption) => {
-    setTagSubmitting(true);
-    setTagError(null);
-
-    const result = await submitPartyTag(filerId, party);
-
-    if (result.success) {
-      // Refresh the tag
-      const newTag = await getPartyTag(filerId);
-      setPartyTag(newTag);
-      setShowTagDropdown(false);
-    } else {
-      setTagError(result.error || 'Failed to submit tag');
-    }
-
-    setTagSubmitting(false);
-  };
-
-  // Get the display party (official or user-tagged)
-  const displayParty = filer?.party || partyTag?.party;
-  const isUserTagged = !filer?.party && !!partyTag;
+  const displayParty = filer?.party;
 
   // Function to apply filters and load all filtered data
   const applyFilters = useCallback(async () => {
@@ -250,8 +220,8 @@ export default function CandidateProfile({ filerId }: CandidateProfileProps) {
                     {filer.type}
                   </span>
                 )}
-                {/* Party Badge - Official, User-tagged, or Tag Button */}
-                {displayParty ? (
+                {/* Party Badge - official data only */}
+                {displayParty && (
                   <span
                     className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
                       displayParty === 'REPUBLICAN'
@@ -262,48 +232,7 @@ export default function CandidateProfile({ filerId }: CandidateProfileProps) {
                     }`}
                   >
                     {displayParty}
-                    {isUserTagged && (
-                      <span className="text-[10px] opacity-70" title="Tagged by community">
-                        (community)
-                      </span>
-                    )}
                   </span>
-                ) : filer.type === 'COH' && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowTagDropdown(!showTagDropdown)}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-                      disabled={tagSubmitting}
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      {tagSubmitting ? 'Saving...' : 'Tag Party'}
-                    </button>
-                    {showTagDropdown && (
-                      <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-10 min-w-[140px]">
-                        {PARTY_OPTIONS.map((party) => (
-                          <button
-                            key={party}
-                            onClick={() => handleTagParty(party)}
-                            disabled={tagSubmitting}
-                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 ${
-                              party === 'REPUBLICAN' ? 'text-red-700' :
-                              party === 'DEMOCRAT' ? 'text-blue-700' :
-                              'text-slate-700'
-                            }`}
-                          >
-                            {party}
-                          </button>
-                        ))}
-                        {tagError && (
-                          <div className="px-3 py-1.5 text-xs text-red-600 border-t border-slate-100">
-                            {tagError}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
                 )}
                 {filer.office_held && (
                   <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">

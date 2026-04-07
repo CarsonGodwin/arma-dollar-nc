@@ -47,8 +47,6 @@ const FIELDS: Record<DataSource, { value: string; label: string; type: 'text' | 
     { value: 'contributor_employer', label: 'Employer', type: 'text' },
     { value: 'contributor_occupation', label: 'Occupation', type: 'text' },
     { value: 'description', label: 'Description', type: 'text' },
-    { value: 'contribution_type', label: 'Contribution Type', type: 'text' },
-    { value: 'in_kind_description', label: 'In-Kind Description', type: 'text' },
     { value: 'received_date', label: 'Report Filed Date', type: 'date' },
   ],
   expenditures: [
@@ -58,12 +56,10 @@ const FIELDS: Record<DataSource, { value: string; label: string; type: 'text' | 
     { value: 'amount', label: 'Amount', type: 'number' },
     { value: 'date', label: 'Expenditure Date', type: 'date' },
     { value: 'category', label: 'Category', type: 'text' },
-    { value: 'expenditure_type', label: 'Expenditure Type', type: 'text' },
     { value: 'payee_city', label: 'Payee City', type: 'text' },
     { value: 'payee_state', label: 'Payee State', type: 'text' },
     { value: 'payee_zip', label: 'Payee Zip', type: 'text' },
     { value: 'description', label: 'Description', type: 'text' },
-    { value: 'reimbursement_expected', label: 'Reimbursement Expected', type: 'text' },
     { value: 'received_date', label: 'Report Filed Date', type: 'date' },
   ],
   filers: [
@@ -73,14 +69,10 @@ const FIELDS: Record<DataSource, { value: string; label: string; type: 'text' | 
     { value: 'party', label: 'Party', type: 'text' },
     { value: 'office_held', label: 'Office Held', type: 'text' },
     { value: 'office_sought', label: 'Office Sought', type: 'text' },
-    { value: 'district_held', label: 'District Held', type: 'text' },
-    { value: 'district_sought', label: 'District Sought', type: 'text' },
     { value: 'office_district', label: 'Office/District', type: 'text' },
     { value: 'status', label: 'Status', type: 'text' },
     { value: 'city', label: 'City', type: 'text' },
     { value: 'state', label: 'State', type: 'text' },
-    { value: 'effective_start', label: 'Effective Start', type: 'date' },
-    { value: 'effective_stop', label: 'Effective Stop', type: 'date' },
   ],
   reports: [
     { value: 'filer_name', label: 'Filer Name', type: 'text' },
@@ -92,8 +84,8 @@ const FIELDS: Record<DataSource, { value: string; label: string; type: 'text' | 
     { value: 'total_contributions', label: 'Total Contributions', type: 'number' },
     { value: 'total_expenditures', label: 'Total Expenditures', type: 'number' },
     { value: 'cash_on_hand', label: 'Cash on Hand', type: 'number' },
-    { value: 'loans_outstanding', label: 'Loans Outstanding', type: 'number' },
-    { value: 'beginning_balance', label: 'Beginning Balance', type: 'number' },
+    { value: 'loan_balance', label: 'Loan Balance', type: 'number' },
+    { value: 'loans_outstanding', label: 'Loans Outstanding (alias)', type: 'number' },
   ],
 };
 
@@ -488,7 +480,7 @@ export default function QueryBuilder() {
     URL.revokeObjectURL(url);
   };
 
-  const ConditionRow = ({ condition, groupId }: { condition: Condition; groupId: string }) => {
+  const renderConditionRow = (condition: Condition, groupId: string) => {
     const availableOperators = getAvailableOperators(condition.field);
     const fieldType = getFieldType(condition.field);
 
@@ -556,7 +548,7 @@ export default function QueryBuilder() {
     );
   };
 
-  const GroupComponent = ({ group, depth = 0, parentId }: { group: ConditionGroup; depth?: number; parentId?: string }) => {
+  const renderGroup = (group: ConditionGroup, depth = 0, parentId?: string) => {
     const bgColor = depth % 2 === 0 ? 'bg-white' : 'bg-blue-50';
 
     return (
@@ -589,9 +581,9 @@ export default function QueryBuilder() {
         <div className="space-y-2">
           {group.conditions.map(item => (
             'conditions' in item ? (
-              <GroupComponent key={item.id} group={item} depth={depth + 1} parentId={group.id} />
+              <div key={item.id}>{renderGroup(item, depth + 1, group.id)}</div>
             ) : (
-              <ConditionRow key={item.id} condition={item} groupId={group.id} />
+              <div key={item.id}>{renderConditionRow(item, group.id)}</div>
             )
           ))}
         </div>
@@ -658,7 +650,7 @@ export default function QueryBuilder() {
           {/* Conditions Builder */}
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <h3 className="font-semibold text-slate-900 mb-3">Query Conditions</h3>
-            <GroupComponent group={rootGroup} />
+            {renderGroup(rootGroup)}
           </div>
 
           {/* Aggregation Options */}

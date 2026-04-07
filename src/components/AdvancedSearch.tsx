@@ -3,7 +3,7 @@ import ResultsTable, { SortableHeader, sortData, type SortState } from './Result
 import Pagination from './Pagination';
 import DatabaseLoader from './DatabaseLoader';
 import { query as duckdbQuery, waitForInit, formatCurrency, formatDate, type Contribution, type Expenditure } from '../lib/duckdb';
-import { loadTexasGeo, getCitiesInCounty, getCitiesInRegion, type TexasGeoData } from '../lib/texas-geo';
+import { loadNcGeo, getCitiesInCounty, type NcGeoData } from '../lib/nc-geo';
 
 type TransactionType = 'contributions' | 'expenditures' | 'both';
 
@@ -29,7 +29,6 @@ interface AdvancedFilters {
   state: string;
   zipCode: string;
   county: string;
-  region: string;
 
   // Contributor details
   employer: string;
@@ -76,7 +75,6 @@ const DEFAULT_FILTERS: AdvancedFilters = {
   state: '',
   zipCode: '',
   county: '',
-  region: '',
   employer: '',
   occupation: '',
   contributorType: '',
@@ -101,35 +99,39 @@ const CONTRIBUTOR_TYPES = [
 
 const FILER_TYPES = [
   { value: '', label: 'All Filer Types' },
-  { value: 'COH', label: 'Candidate/Officeholder' },
-  { value: 'GPAC', label: 'General Purpose PAC' },
-  { value: 'SPAC', label: 'Specific Purpose PAC' },
-  { value: 'MPAC', label: 'Party PAC' },
-  { value: 'JCOH', label: 'Judicial Candidate' },
+  { value: 'CANDIDATE_COMMITTEE', label: 'Candidate Committee' },
+  { value: 'PAC', label: 'Political Action Committee (PAC)' },
+  { value: 'PARTY_EXECUTIVE_COMMITTEE', label: 'Party Executive Committee' },
+  { value: 'BALLOT_ISSUE_COMMITTEE', label: 'Ballot Issue Committee' },
+  { value: 'INDEPENDENT_EXPENDITURE', label: 'Independent Expenditure Committee' },
 ];
 
 const OFFICE_TYPES = [
   { value: '', label: 'All Offices' },
-  // Statewide Executive
+  { value: 'US_SENATE', label: 'U.S. Senate' },
+  { value: 'US_HOUSE', label: 'U.S. House' },
   { value: 'GOVERNOR', label: 'Governor' },
-  { value: 'LTGOVERNOR', label: 'Lieutenant Governor' },
-  { value: 'ATTYGEN', label: 'Attorney General' },
-  { value: 'COMPTROLLER', label: 'Comptroller' },
-  { value: 'LANDCOMM', label: 'Land Commissioner' },
-  { value: 'AGRICULTUR', label: 'Agriculture Commissioner' },
-  { value: 'RRCOMM', label: 'Railroad Commissioner' },
-  // Legislative
-  { value: 'STATESEN', label: 'State Senator' },
-  { value: 'STATEREP', label: 'State Representative' },
-  { value: 'STATEEDU', label: 'State Board of Education' },
-  // Judicial
-  { value: 'JUSTICE_COA', label: 'Court of Appeals Justice' },
-  { value: 'JUDGEDIST', label: 'District Judge' },
-  // Local/County
-  { value: 'DISTATTY', label: 'District Attorney' },
-  // Party
-  { value: 'STATE_CHAIR', label: 'State Party Chair' },
-  { value: 'PARTYCHAIRCO', label: 'Party County Chair' },
+  { value: 'LIEUTENANT_GOVERNOR', label: 'Lieutenant Governor' },
+  { value: 'ATTORNEY_GENERAL', label: 'Attorney General' },
+  { value: 'AUDITOR', label: 'State Auditor' },
+  { value: 'COMMISSIONER_OF_AGRICULTURE', label: 'Commissioner of Agriculture' },
+  { value: 'COMMISSIONER_OF_INSURANCE', label: 'Commissioner of Insurance' },
+  { value: 'COMMISSIONER_OF_LABOR', label: 'Commissioner of Labor' },
+  { value: 'SECRETARY_OF_STATE', label: 'Secretary of State' },
+  { value: 'STATE_TREASURER', label: 'State Treasurer' },
+  { value: 'SUPERINTENDENT_PUBLIC_INSTRUCTION', label: 'Superintendent of Public Instruction' },
+  { value: 'NC_SENATE', label: 'NC Senate' },
+  { value: 'NC_HOUSE', label: 'NC House' },
+  { value: 'SUPREME_COURT', label: 'NC Supreme Court' },
+  { value: 'COURT_OF_APPEALS', label: 'NC Court of Appeals' },
+  { value: 'SUPERIOR_COURT', label: 'Superior Court Judge' },
+  { value: 'DISTRICT_COURT', label: 'District Court Judge' },
+  { value: 'DISTRICT_ATTORNEY', label: 'District Attorney' },
+  { value: 'SHERIFF', label: 'Sheriff' },
+  { value: 'COUNTY_COMMISSIONER', label: 'County Commissioner' },
+  { value: 'SCHOOL_BOARD', label: 'School Board' },
+  { value: 'MAYOR', label: 'Mayor' },
+  { value: 'CITY_COUNCIL', label: 'City Council' },
 ];
 
 const PARTIES = [
@@ -138,11 +140,13 @@ const PARTIES = [
   { value: 'DEMOCRAT', label: 'Democrat' },
   { value: 'LIBERTARIAN', label: 'Libertarian' },
   { value: 'GREEN', label: 'Green' },
-  { value: 'INDEPENDENT', label: 'Independent' },
+  { value: 'CONSTITUTION', label: 'Constitution' },
+  { value: 'UNAFFILIATED', label: 'Unaffiliated' },
 ];
 
 const STATES = [
   { value: '', label: 'All States' },
+  { value: 'NC', label: 'North Carolina' },
   { value: 'TX', label: 'Texas' },
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },
@@ -177,7 +181,6 @@ const STATES = [
   { value: 'NJ', label: 'New Jersey' },
   { value: 'NM', label: 'New Mexico' },
   { value: 'NY', label: 'New York' },
-  { value: 'NC', label: 'North Carolina' },
   { value: 'ND', label: 'North Dakota' },
   { value: 'OH', label: 'Ohio' },
   { value: 'OK', label: 'Oklahoma' },
@@ -234,13 +237,21 @@ export default function AdvancedSearch() {
     expenditure: false,
     aggregation: false,
   });
-  const [texasGeo, setTexasGeo] = useState<TexasGeoData | null>(null);
+  const [ncGeo, setNcGeo] = useState<NcGeoData | null>(null);
   const pageSize = 50;
 
-  // Load Texas geographic data on mount
+  // Load NC geographic data on mount
   useEffect(() => {
-    loadTexasGeo().then(setTexasGeo);
+    loadNcGeo().then(setNcGeo).catch(() => setNcGeo(null));
   }, []);
+
+  const getStateCondition = (column: string, state: string): string => {
+    const escapedState = escapeSql(state);
+    if (state === 'NC') {
+      return `(${column} = 'NC' OR UPPER(${column}) = 'NORTH CAROLINA')`;
+    }
+    return `${column} = '${escapedState}'`;
+  };
 
   const handleSort = (column: string) => {
     setSortState(prev => {
@@ -374,7 +385,6 @@ export default function AdvancedSearch() {
 
         // Determine if we need to join with filers table (for party, filerType, officeType filters)
         const needsJoin = filters.party || filters.filerType || filters.officeType;
-        const tableAlias = needsJoin ? 'c' : '';
         const colPrefix = needsJoin ? 'c.' : '';
 
         // Apply name filter
@@ -410,12 +420,7 @@ export default function AdvancedSearch() {
           conditions.push(`${colPrefix}contributor_city ILIKE '%${escapeSql(filters.city)}%'`);
         }
         if (filters.state) {
-          // Handle both abbreviation and full name (e.g., TX and TEXAS)
-          if (filters.state === 'TX') {
-            conditions.push(`(${colPrefix}contributor_state = 'TX' OR ${colPrefix}contributor_state = 'TEXAS' OR ${colPrefix}contributor_state ILIKE 'Texas')`);
-          } else {
-            conditions.push(`${colPrefix}contributor_state = '${escapeSql(filters.state)}'`);
-          }
+          conditions.push(getStateCondition(`${colPrefix}contributor_state`, filters.state));
         }
 
         // Apply ZIP code filter (supports partial match)
@@ -428,15 +433,6 @@ export default function AdvancedSearch() {
           const citiesInCounty = getCitiesInCounty(filters.county);
           if (citiesInCounty.length > 0) {
             const cityList = citiesInCounty.map(c => `'${escapeSql(c)}'`).join(', ');
-            conditions.push(`UPPER(${colPrefix}contributor_city) IN (${cityList})`);
-          }
-        }
-
-        // Apply region filter (match cities in that metro region)
-        if (filters.region) {
-          const citiesInRegion = getCitiesInRegion(filters.region);
-          if (citiesInRegion.length > 0) {
-            const cityList = citiesInRegion.map(c => `'${escapeSql(c)}'`).join(', ');
             conditions.push(`UPPER(${colPrefix}contributor_city) IN (${cityList})`);
           }
         }
@@ -583,12 +579,7 @@ export default function AdvancedSearch() {
           conditions.push(`${colPrefix}payee_city ILIKE '%${escapeSql(filters.city)}%'`);
         }
         if (filters.state) {
-          // Handle both abbreviation and full name (e.g., TX and TEXAS)
-          if (filters.state === 'TX') {
-            conditions.push(`(${colPrefix}payee_state = 'TX' OR ${colPrefix}payee_state = 'TEXAS' OR ${colPrefix}payee_state ILIKE 'Texas')`);
-          } else {
-            conditions.push(`${colPrefix}payee_state = '${escapeSql(filters.state)}'`);
-          }
+          conditions.push(getStateCondition(`${colPrefix}payee_state`, filters.state));
         }
 
         // Apply ZIP code filter (supports partial match)
@@ -601,15 +592,6 @@ export default function AdvancedSearch() {
           const citiesInCounty = getCitiesInCounty(filters.county);
           if (citiesInCounty.length > 0) {
             const cityList = citiesInCounty.map(c => `'${escapeSql(c)}'`).join(', ');
-            conditions.push(`UPPER(${colPrefix}payee_city) IN (${cityList})`);
-          }
-        }
-
-        // Apply region filter (match cities in that metro region)
-        if (filters.region) {
-          const citiesInRegion = getCitiesInRegion(filters.region);
-          if (citiesInRegion.length > 0) {
-            const cityList = citiesInRegion.map(c => `'${escapeSql(c)}'`).join(', ');
             conditions.push(`UPPER(${colPrefix}payee_city) IN (${cityList})`);
           }
         }
@@ -714,7 +696,7 @@ export default function AdvancedSearch() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tec-${filters.transactionType}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `nc-campaign-finance-${filters.transactionType}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -975,40 +957,16 @@ export default function AdvancedSearch() {
               <SectionHeader title="Location" section="location" icon="📍" />
               {expandedSections.location && (
                 <div className="p-4 space-y-3 border border-slate-200 rounded-lg mt-2">
-                  {/* Texas Region Dropdown */}
+                  {/* NC County Dropdown */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Texas Metro Region</label>
-                    <select
-                      value={filters.region}
-                      onChange={(e) => {
-                        updateFilter('region', e.target.value);
-                        if (e.target.value) updateFilter('county', '');
-                      }}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-texas-blue bg-white"
-                    >
-                      <option value="">All Regions</option>
-                      <option value="DFW">Dallas-Fort Worth</option>
-                      <option value="Houston">Houston Metro</option>
-                      <option value="Austin">Austin Metro</option>
-                      <option value="San Antonio">San Antonio Metro</option>
-                      <option value="El Paso">El Paso</option>
-                      <option value="Rio Grande Valley">Rio Grande Valley</option>
-                    </select>
-                  </div>
-
-                  {/* Texas County Dropdown */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Texas County</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">County</label>
                     <select
                       value={filters.county}
-                      onChange={(e) => {
-                        updateFilter('county', e.target.value);
-                        if (e.target.value) updateFilter('region', '');
-                      }}
+                      onChange={(e) => updateFilter('county', e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-texas-blue bg-white"
                     >
                       <option value="">All Counties</option>
-                      {texasGeo?.counties.map((c) => (
+                      {ncGeo?.counties.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
@@ -1021,7 +979,7 @@ export default function AdvancedSearch() {
                       type="text"
                       value={filters.city}
                       onChange={(e) => updateFilter('city', e.target.value)}
-                      placeholder="e.g., Austin, Houston"
+                      placeholder="e.g., Raleigh, Charlotte"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-texas-blue"
                     />
                   </div>
@@ -1033,10 +991,10 @@ export default function AdvancedSearch() {
                       type="text"
                       value={filters.zipCode}
                       onChange={(e) => updateFilter('zipCode', e.target.value)}
-                      placeholder="e.g., 78701, 75201"
+                      placeholder="e.g., 27601, 28202"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-texas-blue"
                     />
-                    <p className="text-xs text-slate-400 mt-1">Partial match supported (e.g., "787" for Austin area)</p>
+                    <p className="text-xs text-slate-400 mt-1">Partial match supported (e.g., "276" for Raleigh area)</p>
                   </div>
 
                   {/* State Dropdown */}
@@ -1053,7 +1011,7 @@ export default function AdvancedSearch() {
                     </select>
                   </div>
 
-                  <p className="text-xs text-slate-400">City/county data from Simplemaps.com (CC-BY 4.0)</p>
+                  <p className="text-xs text-slate-400">City/county data from public geographic lookup sources</p>
                 </div>
               )}
             </div>

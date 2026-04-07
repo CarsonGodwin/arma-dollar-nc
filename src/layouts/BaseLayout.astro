@@ -4,7 +4,7 @@ interface Props {
   description?: string;
 }
 
-const { title, description = "Search Texas campaign finance records from the Texas Ethics Commission" } = Astro.props;
+const { title, description = "Search North Carolina campaign finance records" } = Astro.props;
 ---
 
 <!DOCTYPE html>
@@ -18,6 +18,40 @@ const { title, description = "Search Texas campaign finance records from the Tex
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>{title} | Armadollar</title>
+    <script>
+      function setActiveNavLink() {
+        const path = window.location.pathname;
+        const links = document.querySelectorAll('[data-nav-link]');
+        
+        links.forEach(link => {
+          const href = link.getAttribute('href');
+          const isActive = 
+            (href === '/advanced' && path === '/advanced') ||
+            (href === '/query-builder' && path === '/query-builder') ||
+            (href === '/search/contributors' && path === '/search/contributors') ||
+            (href === '/search/committees' && path === '/search/committees');
+          
+          if (isActive) {
+            link.classList.remove('text-blue-100');
+            link.classList.add('text-white');
+            if (link.classList.contains('button-style')) {
+              link.classList.remove('bg-white/10');
+              link.classList.add('bg-white/20');
+            }
+          } else {
+            link.classList.remove('text-white');
+            link.classList.add('text-blue-100');
+            if (link.classList.contains('button-style')) {
+              link.classList.remove('bg-white/20');
+              link.classList.add('bg-white/10');
+            }
+          }
+        });
+      }
+      
+      setActiveNavLink();
+      window.addEventListener('popstate', setActiveNavLink);
+    </script>
   </head>
   <body class="min-h-screen flex flex-col">
     <header class="bg-texas-blue text-white">
@@ -42,20 +76,20 @@ const { title, description = "Search Texas campaign finance records from the Tex
             </div>
             <div>
               <span class="text-lg font-semibold">Armadollar</span>
-              <span class="hidden sm:inline text-sm text-blue-200 ml-2">Texas Campaign Finance</span>
+              <span class="hidden sm:inline text-sm text-blue-200 ml-2">North Carolina Campaign Finance</span>
             </div>
           </a>
           <div class="flex items-center gap-4 lg:gap-6">
-            <a href="/search/contributors" class="text-sm font-medium text-blue-100 hover:text-white transition-colors hidden sm:block">
+            <a href="/search/contributors" data-nav-link class="text-sm font-medium hover:text-white transition-colors hidden sm:block text-blue-100">
               Donors
             </a>
-            <a href="/search/committees" class="text-sm font-medium text-blue-100 hover:text-white transition-colors hidden sm:block">
+            <a href="/search/committees" data-nav-link class="text-sm font-medium hover:text-white transition-colors hidden sm:block text-blue-100">
               Committees
             </a>
-            <a href="/query-builder" class="text-sm font-medium text-blue-100 hover:text-white transition-colors">
+            <a href="/query-builder" data-nav-link class="text-sm font-medium hover:text-white transition-colors text-blue-100">
               Expert Mode
             </a>
-            <a href="/advanced" class="px-3 py-1.5 text-sm font-medium bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+            <a href="/advanced" data-nav-link class="button-style px-3 py-1.5 text-sm font-medium bg-white/10 rounded-lg transition-colors text-blue-100 hover:text-white">
               List Builder
             </a>
           </div>
@@ -71,7 +105,7 @@ const { title, description = "Search Texas campaign finance records from the Tex
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
           <p class="text-sm">
-            Data from the <a href="https://www.ethics.state.tx.us/" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300">Texas Ethics Commission</a>
+            Data from the <a href="https://www.ncsbe.gov/campaign-finance" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300">North Carolina State Board of Elections</a>
           </p>
           <p class="text-sm">
             Records from 2020 to present

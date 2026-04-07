@@ -53,11 +53,9 @@ export default function TopDonorsChart({ donors, title = 'Top Donors' }: TopDono
             />
             <Tooltip
               formatter={(value) => formatCurrency(Number(value) || 0)}
-              labelFormatter={(label: string, payload) => {
-                if (payload && payload[0]) {
-                  return payload[0].payload.name;
-                }
-                return label;
+              labelFormatter={(label, payload) => {
+                const first = payload?.[0] as { payload?: { name?: string } } | undefined;
+                return first?.payload?.name ?? String(label ?? '');
               }}
               contentStyle={{
                 backgroundColor: 'white',

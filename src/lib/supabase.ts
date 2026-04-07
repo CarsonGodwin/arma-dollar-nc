@@ -1,27 +1,18 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+// Party-tagging is intentionally disabled for NC migration v1.
+// This file preserves the API surface used by components while returning no-op values.
 
-let supabaseInstance: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient {
-  if (!supabaseInstance) {
-    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || '';
-    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Supabase configuration missing. Please set PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY.');
-    }
-
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
-  }
-  return supabaseInstance;
+export function getSupabase(): never {
+  throw new Error('Supabase integration is disabled in this deployment.');
 }
 
-// Legacy export for compatibility - use getSupabase() instead
+// Legacy export for compatibility
 export const supabase = {
-  from: (table: string) => getSupabase().from(table),
+  from: () => {
+    throw new Error('Supabase integration is disabled in this deployment.');
+  },
 };
 
-// Type definitions for our database tables
+// Type definitions kept for compatibility with existing components
 export interface Filer {
   id: string;
   name: string;
@@ -81,7 +72,6 @@ export interface PartyTag {
   tagged_at: string;
 }
 
-// Valid party options for tagging
 export const PARTY_OPTIONS = [
   'REPUBLICAN',
   'DEMOCRAT',
@@ -92,53 +82,13 @@ export const PARTY_OPTIONS = [
 
 export type PartyOption = typeof PARTY_OPTIONS[number];
 
-/**
- * Get the user-submitted party tag for a filer (if any)
- */
-export async function getPartyTag(filerId: string): Promise<PartyTag | null> {
-  try {
-    const { data, error } = await getSupabase()
-      .from('party_tags')
-      .select('*')
-      .eq('filer_id', filerId)
-      .single();
-
-    if (error) {
-      // PGRST116 means no rows found - that's fine
-      if (error.code === 'PGRST116') return null;
-      console.error('Error fetching party tag:', error);
-      return null;
-    }
-
-    return data;
-  } catch (err) {
-    console.error('Error fetching party tag:', err);
-    return null;
-  }
+export async function getPartyTag(_filerId: string): Promise<PartyTag | null> {
+  return null;
 }
 
-/**
- * Submit a party tag for a filer
- * Returns true if successful, false if the filer was already tagged
- */
-export async function submitPartyTag(filerId: string, party: PartyOption): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { error } = await getSupabase()
-      .from('party_tags')
-      .insert({ filer_id: filerId, party });
-
-    if (error) {
-      // Primary key violation means already tagged
-      if (error.code === '23505') {
-        return { success: false, error: 'This filer has already been tagged' };
-      }
-      console.error('Error submitting party tag:', error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
-  } catch (err: any) {
-    console.error('Error submitting party tag:', err);
-    return { success: false, error: err.message || 'Unknown error' };
-  }
+export async function submitPartyTag(
+  _filerId: string,
+  _party: PartyOption
+): Promise<{ success: boolean; error?: string }> {
+  return { success: false, error: 'Party tagging is disabled for this deployment.' };
 }
